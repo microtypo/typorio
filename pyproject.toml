@@ -8,7 +8,15 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 requests = "^2.32.2"
+click = "^8.1.7"
+boto3 = "^1.34.114"
+pynput = "^1.7.7"
 
+[tool.poetry.scripts]
+typo = "typorio.main:cli"
+
+[project.scripts]
+calc = "typorio.main:cli"
 
 [build-system]
 requires = ["poetry-core"]
