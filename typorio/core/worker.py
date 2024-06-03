@@ -3,17 +3,16 @@ import csv
 import json
 import boto3
 import socket
-import random
 import logging
 import pathlib
 import asyncio
 
 from typing import List
 from datetime import datetime
-from botocore.exceptions import ClientError
 
 from typorio.core import constants
 from typorio.core.models import User
+from typorio import utils
 
 logger = logging.getLogger(__name__)
 
@@ -21,19 +20,21 @@ logger = logging.getLogger(__name__)
 class Worker:
     def __init__(
             self,
-            user: User,
-            bucket: str,
+            env: str,
+            profile: str = "typo",
             max_rows: int = 1000,
             verbose: bool = False,
             dry_run: bool = False,
             shuffle: bool = True,
             home: str = "microtypo",
-            push_interval: int = 60 * 30
+            push_interval: int = 60 * 10
     ):
+        self.env = env
+        self.user = None
+        self.profile = profile
         self.rows: List[List[str]] = []
+        self.bucket = self.get_bucket_name()
 
-        self.user = user
-        self.bucket = bucket
         self.shuffle = shuffle
         self.verbose = verbose
         self.dry_run = dry_run
@@ -44,6 +45,32 @@ class Worker:
         self.home_dir = self.os_dir / home
         self.records_dir = self.os_dir / home / "records"
         os.makedirs(self.records_dir, exist_ok=True)
+
+    def get_session(self):
+        return boto3.Session(profile_name=self.profile)
+
+    def get_user(self):
+        if self.user is None:
+            try:
+                iam = self.get_session().client("iam")
+                sts = self.get_session().client("sts")
+                response = sts.get_caller_identity()
+                user_name = response.pop("Arn").split("/").pop()
+                response = iam.list_user_tags(UserName=user_name)
+                user_id = dict((item["Key"], item["Value"]) for item in response["Tags"]).get("Id")
+                self.user = User(id=user_id, username=user_name)
+            except Exception as exc:
+                logger.error(exc)
+        return self.user
+
+    def get_bucket_name(self):
+        buckets = dict(
+            dev="microtypo-dev-bucket",
+            stage="microtypo-stage-bucket",
+            prod="microtypo-prod-bucket",
+        )
+
+        return buckets.get(self.env, buckets["prod"])
 
     def get_records_path(self):
         date = datetime.utcnow().date()
@@ -73,7 +100,7 @@ class Worker:
             key,
             meta,
             hostname,
-            timestamp,
+            str(timestamp),
         ]
         self.rows.append(row)
 
@@ -98,19 +125,21 @@ class Worker:
                     writer.writeheader()
 
                 if self.shuffle:
-                    random.shuffle(self.rows)
+                    self.rows = utils.shuffle_rows(self.rows)
 
                 for row in self.rows:
                     writer.writerow(dict(zip(constants.HEADERS, row)))
         except Exception as exc:
             logger.error(exc)
-        finally:
+        else:
             self.rows = []
 
     def push_data(self):
+        if not self.get_user():
+            return
         object_name = self.get_object_name()
         records_path = self.get_records_path()
-        client = boto3.client("s3", region_name="ap-southeast-1")
+        client = self.get_session().client("s3", region_name="ap-southeast-1")
 
         if not records_path.exists():
             return
@@ -125,11 +154,15 @@ class Worker:
     def move_data(self):
         read_path = self.get_records_path()
         write_path = self.get_backup_path()
+        write_path_exist = write_path.exists()
 
         try:
             with open(read_path, "r") as readfile, open(write_path, "a+") as writefile:
                 reader = csv.DictReader(readfile, fieldnames=constants.HEADERS)
                 writer = csv.DictWriter(writefile, fieldnames=constants.HEADERS)
+
+                if write_path_exist:
+                    next(reader)  # avoid duplicated headers
 
                 for row in reader:
                     writer.writerow(row)

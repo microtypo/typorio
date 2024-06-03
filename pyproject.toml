@@ -11,6 +11,7 @@ requests = "^2.32.2"
 click = "^8.1.7"
 boto3 = "^1.34.114"
 pynput = "^1.7.7"
+pydantic = "^2.7.2"
 
 [tool.poetry.scripts]
 typo = "typorio.main:cli"

@@ -4,28 +4,29 @@ import asyncio
 from pynput import keyboard, mouse
 from typorio.core import constants
 from typorio.core.worker import Worker
-from typorio.core.models import user
 
 
 @click.command(help="Start Typorio")
-@click.option("--bucket", type=str, envvar="AWS_S3_BUCKET_NAME", default="microtypo-dev-bucket")
-@click.option("-v", "--verbose", is_flag=True, default=False)
+@click.option("--env", type=str, default="prod")
+@click.option("--profile", type=str, default="typo")
+@click.option("--quiet", is_flag=True, default=False)
 @click.option("--dry-run", is_flag=True, default=False)
 @click.option("--shuffle", is_flag=True, default=True)
 @click.option("--max-rows", type=int, default=100)
-@click.option("--push-interval", type=int, default=60 * 30)
+@click.option("--push-interval", type=int, default=60 * 10)
 def start(
-        bucket: str,
-        verbose: bool,
+        env: str,
+        profile: str,
+        quiet: bool,
         dry_run: bool,
         shuffle: bool,
         max_rows: int,
         push_interval: int,
 ):
     worker = Worker(
-        user=user,
-        bucket=bucket,
-        verbose=verbose,
+        env=env,
+        profile=profile,
+        verbose=not quiet,
         dry_run=dry_run,
         shuffle=shuffle,
         max_rows=max_rows,
