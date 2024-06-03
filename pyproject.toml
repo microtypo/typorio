@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "typorio"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = ["microtypo <microtypo.io@gmail.com>"]
 readme = "README.md"

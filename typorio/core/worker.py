@@ -90,7 +90,7 @@ class Worker:
         object_name = f"records/{partition}/{self.user.id}/{filename}"
         return object_name
 
-    def write(self, event: int, key: str, meta: dict):
+    def write_data(self, event: str, key: str, meta: dict):
         hostname = socket.gethostname()
         timestamp = datetime.utcnow()
         meta = json.dumps(meta or {})
@@ -118,7 +118,7 @@ class Worker:
         records_path_exists = records_path.exists()
 
         try:
-            with open(records_path, "a+") as csvfile:
+            with open(records_path, "a+", encoding="utf-8", newline="") as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=constants.HEADERS)
 
                 if not records_path_exists:
@@ -137,6 +137,7 @@ class Worker:
     def push_data(self):
         if not self.get_user():
             return
+
         object_name = self.get_object_name()
         records_path = self.get_records_path()
         client = self.get_session().client("s3", region_name="ap-southeast-1")
@@ -157,7 +158,10 @@ class Worker:
         write_path_exist = write_path.exists()
 
         try:
-            with open(read_path, "r") as readfile, open(write_path, "a+") as writefile:
+            with (
+                open(read_path, "r", encoding="utf-8", newline="") as readfile,
+                open(write_path, "a+", encoding="utf-8", newline="") as writefile,
+            ):
                 reader = csv.DictReader(readfile, fieldnames=constants.HEADERS)
                 writer = csv.DictWriter(writefile, fieldnames=constants.HEADERS)
 

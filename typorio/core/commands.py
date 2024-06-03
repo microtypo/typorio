@@ -35,19 +35,19 @@ def start(
 
     def on_click(x, y, button, pressed):
         if pressed:
-            worker.write(event=constants.MOUSE, key=button.name, meta={"x": x, "y": y})
+            worker.write_data(event=constants.MOUSE, key=button.name, meta={"x": x, "y": y})
 
     mouse_listener = mouse.Listener(on_click=on_click)
 
     def on_press(key):
         try:
-            worker.write(
+            worker.write_data(
                 key=key.char,
                 event=constants.KEYBOARD,
                 meta={"vk": getattr(key, "vk", None)}
             )
         except AttributeError:
-            worker.write(
+            worker.write_data(
                 key=key.name,
                 event=constants.KEYBOARD,
                 meta={"vk": getattr(key, "vk", None)}
